@@ -1,5 +1,7 @@
 from django.db import models
 from django.urls import reverse
+from django.contrib.auth.models import User
+from datetime import date
 import uuid
 
 # Create your models here.
@@ -30,8 +32,13 @@ class Book(models.Model):
         return self.title
 
     def get_absolute_url(self):
+        """
+        Returns the url to access a particular book instance.
+        """
         return reverse('book-detail', args=[str(self.id)])
 
+    class Meta:
+        ordering = ['-id']
 
 
 class BookInstance(models.Model):
@@ -42,8 +49,19 @@ class BookInstance(models.Model):
                           help_text="Unique ID for this particular book across whole library")
     book = models.ForeignKey('Book', on_delete=models.SET_NULL, null=True)
     imprint = models.CharField(max_length=200)
+    '''
+    blank = True позволяет оставлять значение в поле пустым
+    null = True позволяет оставить значение NULL в БД
+    '''
     due_back = models.DateField(null=True, blank=True)
+    borrower = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True)
 
+    @property
+    def is_overdue(self):
+        if self.due_back and date.today() > self.due_back:
+            return True
+        return False
     LOAN_STATUS = (
         ('d', 'Maintenance'),
         ('o', 'On loan'),
@@ -56,7 +74,7 @@ class BookInstance(models.Model):
 
     class Meta:
         ordering = ["due_back"]
-
+        permissions = (("can_mark_returned", "Set book as returned"),)
     def __str__(self):
         """
         String for representing the Model object
@@ -72,6 +90,9 @@ class Author(models.Model):
     last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
     date_of_death = models.DateField('Died', null=True, blank=True)
+
+    class Meta:
+        ordering = ["last_name"]
 
     def get_absolute_url(self):
         """
